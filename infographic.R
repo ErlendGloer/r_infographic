@@ -1,29 +1,79 @@
 
 # infographic.R
 #
-# Question: Was UC Berkeley biased against women in its 1973 graduate
-#           admissions?
-# Data:     UCBAdmissions, built into R (the six largest departments).
+# Was UC Berkeley biased against women in its 1973 graduate admissions?
+# This script answers the question with an infographic built from
+# UCBAdmissions, a dataset that ships with R.
 #
-# Work in progress: this version prints the numbers and writes the infographic
-# with fixed settings. The command-line argument is added in the next step.
+# Usage:
+#   Rscript infographic.R <colour scheme>
 #
-# Run from the project folder with:
-#   Rscript infographic.R
+# Argument:
+#   <colour scheme>  Required. Picks the two colours used for men and women,
+#                    taken from one of R's built-in palettes. One of:
+#                    okabe-ito, dark2, set1, r4, ggplot2
+#
+# Output:
+#   berkeley_admissions_<colour scheme>.png, written to the current folder.
+#   The numbers behind the infographic are printed to the terminal.
+#
+# The image committed to this repository, berkeley_admissions_okabe-ito.png,
+# was produced with exactly this command, run from the project folder:
+#   Rscript infographic.R okabe-ito
+#
+# Needs R 4.1 or later and the tidyverse. README.md has more detail.
 
+# ---- 0. Command-line argument -----------------------------------------------
+# Checked first, so that a wrong call fails at once with a helpful message.
+
+# Each scheme is a pair of colours (men, women) picked from a palette that is
+# built into R. palette.colors() is base R; palette.pals() lists the palettes.
+schemes <- list(
+  "okabe-ito" = palette.colors(palette = "Okabe-Ito")[c(6, 7)],  # blue, red
+  "dark2"     = palette.colors(palette = "Dark 2")[c(1, 2)],     # green, orange
+  "set1"      = palette.colors(palette = "Set 1")[c(2, 1)],      # blue, red
+  "r4"        = palette.colors(palette = "R4")[c(4, 2)],         # blue, pink
+  "ggplot2"   = palette.colors(palette = "ggplot2")[c(5, 2)]     # teal, salmon
+)
+
+usage <- paste0(
+  "\n  Usage:   Rscript infographic.R <colour scheme>",
+  "\n  Schemes: ", paste(names(schemes), collapse = ", "),
+  "\n  Example: Rscript infographic.R okabe-ito"
+)
+
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) == 0) {
+  stop("No colour scheme given.", usage, call. = FALSE)
+}
+if (length(args) > 1) {
+  stop("Expected one argument but got ", length(args), ".", usage,
+       call. = FALSE)
+}
+
+scheme <- tolower(args[1])
+
+if (!scheme %in% names(schemes)) {
+  stop("'", args[1], "' is not a colour scheme this script knows.", usage,
+       call. = FALSE)
+}
+
+gender_cols <- c(Men = schemes[[scheme]][[1]], Women = schemes[[scheme]][[2]])
+out_file    <- paste0("berkeley_admissions_", scheme, ".png")
+
+# ---- 1. Packages, settings and data -----------------------------------------
 suppressPackageStartupMessages(library(tidyverse))
 
-# ---- 0. Settings ------------------------------------------------------------
-out_file  <- "berkeley_admissions.png"  # where the infographic is written
-text_size <- 11                         # base text size in points
+text_size <- 11   # base text size in points; all other sizes follow from it
 
 # Small helpers for turning numbers into text, and for breaking long
 # sentences into lines of the same length on every machine.
-pct   <- function(x) sprintf("%.1f%%", 100 * x)             # 0.445 -> "44.5%"
-num   <- function(x) formatC(x, format = "d", big.mark = ",") # 2691  -> "2,691"
-wrap  <- function(x) str_wrap(x, width = 80)
+pct  <- function(x) sprintf("%.1f%%", 100 * x)                # 0.445 -> "44.5%"
+pct0 <- function(x) sprintf("%.0f%%", 100 * x)                # 0.445 -> "45%"
+num  <- function(x) formatC(x, format = "d", big.mark = ",")  # 2691  -> "2,691"
+wrap <- function(x) str_wrap(x, width = 80)
 
-# ---- 1. Data ----------------------------------------------------------------
 # UCBAdmissions is a 3-dimensional table (Admit x Gender x Dept).
 # as_tibble() turns it into one row per combination, with the count in `n`.
 admissions <- as_tibble(UCBAdmissions) |>
@@ -128,15 +178,12 @@ by_difficulty |>
 
 # ---- 4. Infographic ---------------------------------------------------------
 
-# 4a. Colours and a shared theme.
-#     One colour per gender, used the same way in every panel.
-gender_cols <- c(Men = "#2a78d6", Women = "#eb6834")
+# 4a. Colours for everything except the two genders, and a shared theme.
 col_surface <- "#fcfcfb"  # page background
 col_ink     <- "#0b0b0b"  # main text
 col_ink2    <- "#52514e"  # secondary text
 col_muted   <- "#898781"  # small print
-col_grid    <- "#e1e0d9"  # gridlines
-col_axis    <- "#c3c2b7"  # connector lines
+col_axis    <- "#c3c2b7"  # baselines and brackets
 
 # geom_text() measures size in mm, themes in points; .pt converts between them.
 txt <- function(rel_size = 1) rel_size * text_size / .pt
@@ -150,12 +197,10 @@ theme_panel <- theme_minimal(base_size = text_size) +
                                         colour = col_ink),
     plot.subtitle        = element_text(colour = col_ink2, lineheight = 1.15,
                                         margin = margin(t = 2, b = 8)),
-    panel.grid.minor     = element_blank(),
-    panel.grid.major.y   = element_blank(),
-    panel.grid.major.x   = element_line(colour = col_grid, linewidth = 0.3),
+    panel.grid           = element_blank(),
     axis.title           = element_blank(),
-    axis.text.x          = element_text(colour = col_muted),
-    axis.text.y          = element_text(colour = col_ink),
+    axis.text.x          = element_text(colour = col_ink, lineheight = 1.1),
+    axis.text.y          = element_blank(),
     legend.position      = "top",
     legend.justification = "left",
     legend.title         = element_blank(),
@@ -182,9 +227,9 @@ text_panel <- function(title, subtitle, caption = NULL, title_size = 1.25) {
     )
 }
 
-# In horizontal charts ggplot draws the first factor level at the bottom,
-# so "Women" goes first to get men on top.
-gender_levels <- c("Women", "Men")
+# Men are always drawn before women: left bar, then right bar.
+gender_levels <- c("Men", "Women")
+dodge <- position_dodge(width = 0.72)
 men   <- filter(overall, gender == "Men")
 women <- filter(overall, gender == "Women")
 
@@ -198,10 +243,12 @@ p_header <- text_panel(
   title_size = 2.1
 )
 
-# 4c. Panel 1: overall admission rate, one meter per gender.
+# 4c. Panel 1: overall admission rate, one horizontal meter per gender.
+#     In a horizontal chart ggplot puts the first level at the bottom,
+#     so the levels are reversed here to get men on top.
 overall_plot <- overall |>
   mutate(
-    gender = factor(gender, levels = gender_levels),
+    gender = factor(gender, levels = rev(gender_levels)),
     detail = sprintf("%s of %s applicants admitted",
                      num(admitted), num(applicants))
   )
@@ -226,109 +273,90 @@ p_overall <- ggplot(overall_plot, aes(y = gender, fill = gender)) +
   ) +
   theme_panel +
   theme(
-    panel.grid.major.x = element_blank(),
-    axis.text.x        = element_blank(),
-    axis.text.y        = element_text(face = "bold", size = rel(1.1))
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(face = "bold", size = rel(1.1),
+                               colour = col_ink)
   )
 
-# 4d. Panel 2: admission rate per department, with the number of applicants
-#     (n) written next to each dot. The label of the lower rate goes to the
-#     left of its dot and the label of the higher rate to the right, so the
-#     two can never overlap.
+# 4d. Panel 2: admission rate per department, men and women side by side.
+#     The rate is written above each bar and the number of applicants (n)
+#     below it.
 dept_plot <- by_dept |>
-  group_by(dept) |>
-  mutate(is_lower = rank(rate, ties.method = "first") == 1) |>
-  ungroup() |>
-  mutate(
-    gender      = factor(gender, levels = gender_levels),
-    n_label     = paste("n =", applicants),
-    label_x     = rate + if_else(is_lower, -0.025, 0.025),
-    label_hjust = if_else(is_lower, 1, 0)
-  )
+  mutate(gender = factor(gender, levels = gender_levels))
 
-gap_plot <- dept_wide |>
-  mutate(gap_label = sprintf("%s +%.1f", if_else(women_ahead, "Women", "Men"),
-                             100 * abs(gap)))
-
-p_dept <- ggplot(dept_plot, aes(x = rate, y = dept)) +
-  geom_line(aes(group = dept), colour = col_axis, linewidth = 0.8) +
-  geom_point(aes(fill = gender), shape = 21, colour = col_surface,
-             stroke = 1, size = 4) +
-  geom_text(aes(x = label_x, label = n_label, hjust = label_hjust),
+p_dept <- ggplot(dept_plot, aes(x = dept, y = rate, fill = gender)) +
+  geom_col(position = dodge, width = 0.64) +
+  geom_hline(yintercept = 0, colour = col_axis, linewidth = 0.4) +
+  geom_text(aes(label = pct0(rate)), position = dodge, vjust = -0.6,
+            size = txt(0.85), colour = col_ink2) +
+  geom_text(aes(y = -0.07, label = applicants), position = dodge,
             size = txt(0.8), colour = col_muted) +
-  geom_text(data = gap_plot, aes(x = 1.3, label = gap_label), hjust = 1,
-            size = txt(0.9), colour = col_ink2) +
-  annotate("text", x = 1.3, y = Inf, label = "Higher rate (% points)",
-           hjust = 1, vjust = -0.6, size = txt(0.8), colour = col_muted) +
-  scale_fill_manual(values = gender_cols, breaks = c("Men", "Women")) +
-  scale_x_continuous(limits = c(-0.13, 1.3), expand = c(0, 0),
-                     breaks = seq(0, 1, 0.25),
-                     labels = function(x) paste0(100 * x, "%")) +
-  scale_y_discrete(limits = rev, labels = function(d) paste("Dept", d)) +
-  coord_cartesian(clip = "off") +
+  annotate("text", x = 0.58, y = -0.07, label = "n =", hjust = 1,
+           size = txt(0.8), colour = col_muted) +
+  scale_fill_manual(values = gender_cols) +
+  scale_x_discrete(labels = function(d) paste("Dept", d)) +
+  scale_y_continuous(limits = c(-0.12, 0.95), expand = c(0, 0)) +
   labs(
     title = "2. Department by department: no",
     subtitle = wrap(sprintf(
-      "Women had the higher admission rate in %d of %d departments. Each dot is the share of applicants admitted, and n is the number of applicants behind it.",
+      "Women had the higher admission rate in %d of the %d departments. Above each bar is the share of applicants admitted; below it, n is the number who applied.",
       n_women_ahead, n_depts
     ))
   ) +
   theme_panel
 
-# 4e. Panel 3: where men and women applied. The departments are split into
-#     the easier and the selective ones, and a note beside each group gives
-#     the share of men's and women's applications that went there.
+# 4e. Panel 3: where men and women applied, with the same layout as panel 2
+#     so that the departments line up. A bracket over each group of
+#     departments gives the share of men and women who applied there.
 apps_plot <- applications |>
-  mutate(
-    gender     = factor(gender, levels = gender_levels),
-    dept_label = sprintf("Dept %s (admits %.0f%%)", dept, 100 * dept_rate)
-  )
+  mutate(gender = factor(gender, levels = gender_levels))
 
+dept_labels <- dept_difficulty |>
+  mutate(label = sprintf("Dept %s\nadmits %s", dept, pct0(dept_rate)))
+
+# One row per group: where it starts and ends on the x axis (departments are
+# at x = 1, 2, 3, ...) and the text of its note.
 group_notes <- by_difficulty |>
   pivot_wider(names_from = gender, values_from = share) |>
   left_join(
-    summarise(group_by(dept_difficulty, selective), depts = n(),
-              .groups = "drop"),
+    dept_difficulty |>
+      mutate(position = row_number()) |>
+      group_by(selective) |>
+      summarise(x_from = min(position) - 0.4, x_to = max(position) + 0.4,
+                .groups = "drop"),
     by = "selective"
   ) |>
   mutate(
     heading = if_else(selective, "Selective departments",
                       "Easier departments"),
-    detail  = sprintf("%s of men applied here,\n%s of women",
-                      pct(Men), pct(Women)),
-    y       = (depts + 1) / 2   # the vertical middle of the group
+    detail  = sprintf("Chosen by %s of men\nand %s of women",
+                      pct(Men), pct(Women))
   )
 
-p_apps <- ggplot(apps_plot, aes(x = share, y = dept_label, fill = gender)) +
-  geom_col(position = position_dodge(width = 0.8), width = 0.68) +
-  geom_text(aes(label = sprintf("%.0f%%", 100 * share)),
-            position = position_dodge(width = 0.8), hjust = -0.2,
-            size = txt(0.8), colour = col_ink2) +
-  geom_text(data = group_notes, aes(x = 0.42, y = y, label = heading),
-            inherit.aes = FALSE, hjust = 0, vjust = -0.5, fontface = "bold",
-            size = txt(0.9), colour = col_ink) +
-  geom_text(data = group_notes, aes(x = 0.42, y = y, label = detail),
-            inherit.aes = FALSE, hjust = 0, vjust = 1.1, lineheight = 1.1,
+p_apps <- ggplot(apps_plot, aes(x = dept, y = share, fill = gender)) +
+  geom_col(position = dodge, width = 0.64) +
+  geom_hline(yintercept = 0, colour = col_axis, linewidth = 0.4) +
+  geom_text(aes(label = pct0(share)), position = dodge, vjust = -0.6,
+            size = txt(0.85), colour = col_ink2) +
+  geom_segment(data = group_notes,
+               aes(x = x_from, xend = x_to, y = 0.43, yend = 0.43),
+               inherit.aes = FALSE, colour = col_axis, linewidth = 0.4) +
+  geom_text(data = group_notes, aes(x = x_from, y = 0.45, label = detail),
+            inherit.aes = FALSE, hjust = 0, vjust = 0, lineheight = 1.1,
             size = txt(0.9), colour = col_ink2) +
-  facet_grid(rows = vars(selective), scales = "free_y", space = "free_y") +
-  scale_fill_manual(values = gender_cols, breaks = c("Men", "Women")) +
-  # The axis runs well past the longest bar to leave room for the notes.
-  scale_x_continuous(limits = c(0, 0.7), expand = c(0, 0)) +
-  scale_y_discrete(limits = rev) +
-  coord_cartesian(clip = "off") +
+  geom_text(data = group_notes, aes(x = x_from, y = 0.565, label = heading),
+            inherit.aes = FALSE, hjust = 0, vjust = 0, fontface = "bold",
+            size = txt(0.9), colour = col_ink) +
+  scale_fill_manual(values = gender_cols) +
+  scale_x_discrete(labels = setNames(dept_labels$label, dept_labels$dept)) +
+  scale_y_continuous(limits = c(0, 0.63), expand = c(0, 0)) +
   labs(
     title = "3. Why: women applied where it was hardest to get in",
     subtitle = wrap(
       "Share of each gender's applications that went to each department. Selective departments are those that admit fewer than half of their applicants."
     )
   ) +
-  theme_panel +
-  theme(
-    panel.grid.major.x = element_blank(),
-    axis.text.x        = element_blank(),
-    strip.text         = element_blank(),
-    panel.spacing      = unit(1.2, "lines")
-  )
+  theme_panel
 
 # 4f. Conclusion and source.
 p_answer <- text_panel(
@@ -351,11 +379,11 @@ page_height <- 12
 
 pdf(NULL)
 page <- ggplot() +
-  annotation_custom(ggplotGrob(p_header),  ymin = 10.75, ymax = 12) +
-  annotation_custom(ggplotGrob(p_overall), ymin = 8.5,   ymax = 10.75) +
-  annotation_custom(ggplotGrob(p_dept),    ymin = 5.2,   ymax = 8.5) +
-  annotation_custom(ggplotGrob(p_apps),    ymin = 1.9,   ymax = 5.2) +
-  annotation_custom(ggplotGrob(p_answer),  ymin = 0,     ymax = 1.9) +
+  annotation_custom(ggplotGrob(p_header),  ymin = 10.8, ymax = 12) +
+  annotation_custom(ggplotGrob(p_overall), ymin = 8.65, ymax = 10.8) +
+  annotation_custom(ggplotGrob(p_dept),    ymin = 5.45, ymax = 8.65) +
+  annotation_custom(ggplotGrob(p_apps),    ymin = 1.85, ymax = 5.45) +
+  annotation_custom(ggplotGrob(p_answer),  ymin = 0,    ymax = 1.85) +
   scale_x_continuous(limits = c(0, page_width), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, page_height), expand = c(0, 0)) +
   theme_void() +
