@@ -11,15 +11,15 @@
 # Argument:
 #   <colour scheme>  Required. Picks the two colours used for men and women,
 #                    taken from one of R's built-in palettes. One of:
-#                    okabe-ito, dark2, set1, r4, ggplot2
+#                    r4, okabe-ito, dark2, set1, ggplot2
 #
 # Output:
 #   berkeley_admissions_<colour scheme>.png, written to the current folder.
 #   The numbers behind the infographic are printed to the terminal.
 #
-# The image committed to this repository, berkeley_admissions_okabe-ito.png,
-# was produced with exactly this command, run from the project folder:
-#   Rscript infographic.R okabe-ito
+# The image committed to this repository, berkeley_admissions_r4.png, was
+# produced with exactly this command, run from the project folder:
+#   Rscript infographic.R r4
 #
 # Needs R 4.1 or later and the tidyverse. README.md has more detail.
 
@@ -29,17 +29,17 @@
 # Each scheme is a pair of colours (men, women) picked from a palette that is
 # built into R. palette.colors() is base R; palette.pals() lists the palettes.
 schemes <- list(
+  "r4"        = palette.colors(palette = "R4")[c(4, 2)],         # blue, pink
   "okabe-ito" = palette.colors(palette = "Okabe-Ito")[c(6, 7)],  # blue, red
   "dark2"     = palette.colors(palette = "Dark 2")[c(1, 2)],     # green, orange
   "set1"      = palette.colors(palette = "Set 1")[c(2, 1)],      # blue, red
-  "r4"        = palette.colors(palette = "R4")[c(4, 2)],         # blue, pink
   "ggplot2"   = palette.colors(palette = "ggplot2")[c(5, 2)]     # teal, salmon
 )
 
 usage <- paste0(
   "\n  Usage:   Rscript infographic.R <colour scheme>",
   "\n  Schemes: ", paste(names(schemes), collapse = ", "),
-  "\n  Example: Rscript infographic.R okabe-ito"
+  "\n  Example: Rscript infographic.R r4"
 )
 
 args <- commandArgs(trailingOnly = TRUE)
